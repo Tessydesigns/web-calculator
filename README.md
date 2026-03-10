@@ -18,7 +18,7 @@
 
 
 
-<p> Tech Stack</p>
+<p><h2>Tech Stack</h2></p>
 
 * **HTML5** – Structure
 * **CSS3** – Styling and layout
