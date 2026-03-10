@@ -8,10 +8,24 @@ let lastWasError = false;
 const OPS = new Set(["+", "-", "*", "/"]);
 const SAFE_CHARS = /^[0-9+\-*/().\s]+$/;
 
-function setDisplay(v) { display.value = v; }
-function getDisplay() { return display.value; }
+function setDisplay(v) {
+  display.value = v;
+}
 
-function isOp(ch) { return OPS.has(ch); }
+function getDisplay() {
+  return display.value;
+}
+
+function isOp(ch) {
+  return OPS.has(ch);
+}
+
+function showError(message = "Error") {
+  historyEl.textContent = message;
+  setDisplay("Error");
+  lastWasError = true;
+  justCalculated = true;
+}
 
 function clearErrorIfNeeded() {
   if (lastWasError) {
@@ -35,22 +49,24 @@ function backspace() {
     clearAll();
     return;
   }
+
+  justCalculated = false;
   setDisplay(getDisplay().slice(0, -1));
 }
 
 function lastNumberChunk(expr) {
-  // chunk since last operator or parenthesis
   return expr.split(/[\+\-\*\/\(\)]/).pop();
 }
 
 function canAddCloseParen(expr) {
-  // You can only close if there's an unmatched "("
   let balance = 0;
+
   for (const ch of expr) {
     if (ch === "(") balance++;
     if (ch === ")") balance--;
     if (balance < 0) return false;
   }
+
   return balance > 0;
 }
 
@@ -59,19 +75,16 @@ function appendToken(token) {
 
   let expr = getDisplay();
 
-  // After "=", typing a number/dot/"(" starts a new expression
   if (justCalculated && (/^[0-9.]$/.test(token) || token === "(")) {
     expr = "";
     historyEl.textContent = "";
     justCalculated = false;
   }
 
-  // After "=", typing an operator continues from result
   if (justCalculated && isOp(token)) {
     justCalculated = false;
   }
 
-  // If display is empty and token is "." start with "0."
   if (expr === "" && token === ".") {
     setDisplay("0.");
     return;
@@ -79,41 +92,38 @@ function appendToken(token) {
 
   const last = expr.slice(-1);
 
-  // Prevent starting with an operator except "-"
   if (expr === "" && isOp(token) && token !== "-") return;
 
-  // Parentheses rules
   if (token === ")") {
     if (!expr) return;
     if (isOp(last) || last === "(" || last === ".") return;
     if (!canAddCloseParen(expr)) return;
   }
 
-  // Decimal: only one dot per number chunk
   if (token === ".") {
     const chunk = lastNumberChunk(expr);
     if (chunk.includes(".")) return;
+
     if (chunk === "" || chunk === "-") {
-      // e.g. after "(" or operator, allow "0."
       setDisplay(expr + "0.");
       return;
     }
   }
 
-  // Operators: replace if last is operator (except allow "-” as unary after operator or "(")
   if (isOp(token)) {
-    if (!expr) return;
+    if (!expr) {
+      if (token === "-") setDisplay("-");
+      return;
+    }
 
-    // Don't allow operator right after "("
     if (last === "(" && token !== "-") return;
 
     if (isOp(last)) {
-      // allow "* -2" style unary minus
       if (token === "-" && last !== "-") {
         setDisplay(expr + token);
         return;
       }
-      // otherwise replace the operator
+
       setDisplay(expr.slice(0, -1) + token);
       return;
     }
@@ -129,23 +139,45 @@ function tokenize(expr) {
   while (i < expr.length) {
     const ch = expr[i];
 
-    if (ch === " ") { i++; continue; }
+    if (ch === " ") {
+      i++;
+      continue;
+    }
 
     if ("()+-*/".includes(ch)) {
-      // Unary minus handling
       if (ch === "-") {
         const prev = tokens[tokens.length - 1];
-        const unary = !prev || (typeof prev === "string" && ("()+-*/".includes(prev) && prev !== ")"));
+        const unary =
+          !prev ||
+          (typeof prev === "string" &&
+            "()+-*/".includes(prev) &&
+            prev !== ")");
+
         if (unary) {
+          const next = expr[i + 1];
+
+          if (next === "(") {
+            tokens.push("0");
+            tokens.push("-");
+            i++;
+            continue;
+          }
+
           let num = "-";
           i++;
-          while (i < expr.length && /[0-9.]/.test(expr[i])) num += expr[i++];
+
+          while (i < expr.length && /[0-9.]/.test(expr[i])) {
+            num += expr[i++];
+          }
+
           if (num === "-" || num === "-.") throw new Error("Bad number");
           if (num.split(".").length > 2) throw new Error("Bad number");
+
           tokens.push(num);
           continue;
         }
       }
+
       tokens.push(ch);
       i++;
       continue;
@@ -153,8 +185,14 @@ function tokenize(expr) {
 
     if (/[0-9.]/.test(ch)) {
       let num = "";
-      while (i < expr.length && /[0-9.]/.test(expr[i])) num += expr[i++];
+
+      while (i < expr.length && /[0-9.]/.test(expr[i])) {
+        num += expr[i++];
+      }
+
+      if (num === ".") throw new Error("Bad number");
       if (num.split(".").length > 2) throw new Error("Bad number");
+
       tokens.push(num);
       continue;
     }
@@ -176,14 +214,19 @@ function toRPN(tokens) {
     } else if (t in prec) {
       while (
         stack.length &&
-        (stack[stack.length - 1] in prec) &&
+        stack[stack.length - 1] in prec &&
         prec[stack[stack.length - 1]] >= prec[t]
-      ) out.push(stack.pop());
+      ) {
+        out.push(stack.pop());
+      }
       stack.push(t);
     } else if (t === "(") {
       stack.push(t);
     } else if (t === ")") {
-      while (stack.length && stack[stack.length - 1] !== "(") out.push(stack.pop());
+      while (stack.length && stack[stack.length - 1] !== "(") {
+        out.push(stack.pop());
+      }
+
       if (!stack.length) throw new Error("Mismatched");
       stack.pop();
     } else {
@@ -201,30 +244,49 @@ function toRPN(tokens) {
 }
 
 function evalRPN(rpn) {
-  const s = [];
-  for (const t of rpn) {
-    if (!isNaN(t)) { s.push(Number(t)); continue; }
+  const stack = [];
 
-    const b = s.pop();
-    const a = s.pop();
-    if (a === undefined || b === undefined) throw new Error("Invalid");
+  for (const t of rpn) {
+    if (!isNaN(t)) {
+      stack.push(Number(t));
+      continue;
+    }
+
+    const b = stack.pop();
+    const a = stack.pop();
+
+    if (a === undefined || b === undefined) {
+      throw new Error("Invalid");
+    }
 
     let res;
+
     switch (t) {
-      case "+": res = a + b; break;
-      case "-": res = a - b; break;
-      case "*": res = a * b; break;
+      case "+":
+        res = a + b;
+        break;
+      case "-":
+        res = a - b;
+        break;
+      case "*":
+        res = a * b;
+        break;
       case "/":
         if (b === 0) throw new Error("Divide by zero");
         res = a / b;
         break;
-      default: throw new Error("Bad op");
+      default:
+        throw new Error("Bad op");
     }
-    s.push(res);
+
+    stack.push(res);
   }
 
-  if (s.length !== 1 || !Number.isFinite(s[0])) throw new Error("Invalid");
-  return s[0];
+  if (stack.length !== 1 || !Number.isFinite(stack[0])) {
+    throw new Error("Invalid");
+  }
+
+  return stack[0];
 }
 
 function formatResult(n) {
@@ -238,22 +300,14 @@ function equals() {
   const expr = getDisplay().trim();
   if (!expr) return;
 
-  // quick safety check
   if (!SAFE_CHARS.test(expr)) {
-    historyEl.textContent = "Error";
-    setDisplay("Error");
-    lastWasError = true;
-    justCalculated = true;
+    showError("Invalid characters");
     return;
   }
 
-  // don't evaluate if ends with operator or open paren or dot
   const last = expr.slice(-1);
   if (isOp(last) || last === "(" || last === ".") {
-    historyEl.textContent = "Error";
-    setDisplay("Error");
-    lastWasError = true;
-    justCalculated = true;
+    showError("Incomplete expression");
     return;
   }
 
@@ -267,15 +321,13 @@ function equals() {
 
     justCalculated = true;
     lastWasError = false;
-  } catch {
-    historyEl.textContent = "Error";
-    setDisplay("Error");
-    lastWasError = true;
-    justCalculated = true;
+  } catch (err) {
+    const message =
+      err && err.message ? err.message : "Error";
+    showError(message);
   }
 }
 
-// Clicks
 keys.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
@@ -289,19 +341,32 @@ keys.addEventListener("click", (e) => {
   if (value) return appendToken(value);
 });
 
-// Keyboard
 document.addEventListener("keydown", (e) => {
   const k = e.key;
 
-  if (k === "Enter") { e.preventDefault(); equals(); return; }
-  if (k === "Backspace") { backspace(); return; }
-  if (k === "Escape") { clearAll(); return; }
+  if (k === "Enter") {
+    e.preventDefault();
+    equals();
+    return;
+  }
+
+  if (k === "Backspace") {
+    e.preventDefault();
+    backspace();
+    return;
+  }
+
+  if (k === "Escape") {
+    e.preventDefault();
+    clearAll();
+    return;
+  }
 
   if (/^[0-9]$/.test(k) || ["+", "-", "*", "/", "(", ")", "."].includes(k)) {
+    e.preventDefault();
     appendToken(k);
   }
 });
 
-// Start
 setDisplay("");
 display.focus();
