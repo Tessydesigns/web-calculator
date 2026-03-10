@@ -1,10 +1,10 @@
 <h1>  Simple Calculator </h1>
 
-A lightweight **web-based calculator** built with **HTML, CSS, and vanilla JavaScript**.
-It supports standard arithmetic operations, parentheses and supports keyboard input
----
+<p>A lightweight web-based calculator built with <strong>HTML, CSS, and vanilla JavaScript </srong>.</p>
+<p>It supports standard arithmetic operations, parentheses and supports keyboard input</p><u></u>
 
-<u><h2> Features</h2></u>
+
+<h2> Features</h2>
 
 <p> ➕ Addition</p>
 <p> ➖ Subtraction</p>
@@ -13,7 +13,8 @@ It supports standard arithmetic operations, parentheses and supports keyboard in
 <p> 🔢 Decimal and negative numbers</p>
 <p> ⌨ Keyboard support</p>
 <p>🧾 Calculation history</p>
-<u><p> ⚠ Error handling for invalid expressions</p></u>
+<p> ⚠ Error handling for invalid expressions</p>
+<u></u>
 
 
 
@@ -26,12 +27,12 @@ It supports standard arithmetic operations, parentheses and supports keyboard in
 
 <h2>Project Structure</h2>
 
-calculator/
-│
-├── index.html
-├── style.css
-├── script.js
-└── README.md
+<p>calculator/
+│</p>
+<p>├── index.html</p>
+<p>├── style.css</p>
+<p>├── script.js</p>
+<p>└── README.md</p>
 <u></u>
 
 <h2>How to Run</h2>
